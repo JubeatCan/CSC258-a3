@@ -22,16 +22,24 @@ class lock{
 	public:
 		bool onlock()
 		{
-			while(islocked.exchange(true))
-				while(islocked.load());
+			int my_ticket = next_ticket.fetch_add(1);
+			while(true)
+			{
+				int ns = now_serving.load();
+				if (ns == my_ticket)
+					break;
+				this_thread::sleep_for(chrono::nanoseconds(base*(my_ticket-ns)));
+			}
 		}
 
 		void unlock()
 		{
-			islocked.store(false);
+			now_serving++;
 		}
 	private:
-		atomic<bool> islocked = ATOMIC_FLAG_INIT;
+		atomic<int> next_ticket={0};
+		atomic<int> now_serving={0};
+		const int base = 10;
 };
 
 lock red;
